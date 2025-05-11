@@ -1,0 +1,44 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = 'samimbsnl/test'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+    }
+
+    stages {
+        stage('Clone repository') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                script {
+                    app = docker.build("${DOCKER_IMAGE}")
+                }
+            }
+        }
+
+        
+        stage('Push image') {
+            steps {
+                script {
+                    docker.withRegistry("${DOCKER_REGISTRY}", 'dockerhub') {
+                        app.push("${env.BUILD_NUMBER}")
+                    }
+                }
+            }
+        }
+
+        stage('Trigger ManifestUpdate') {
+            steps {
+                echo 'Triggering updatemanifest job'
+                build job: 'updatemanifest', parameters: [
+                    string(name: 'DOCKERTAG', value: env.BUILD_NUMBER)
+                ]
+            }
+        }
+    }
+}
